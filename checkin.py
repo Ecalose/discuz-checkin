@@ -11,6 +11,8 @@ import simplejson as json
 from simplejson.decoder import JSONDecodeError
 import requests
 from requests.exceptions import RequestException
+import time
+from file_read_backwards import FileReadBackwards
 # %%
 warnings.filterwarnings('ignore') #ignore std warning，don't mind
 
@@ -45,8 +47,10 @@ except ImportError as e:
 
 PATH = os.path.abspath(os.path.dirname(__file__))
 
+log_file = os.path.join(PATH, 'checkin.log')
+fh = logging.FileHandler(encoding='utf-8', mode='a', filename=log_file)
 logging.basicConfig(
-    filename=os.path.join(PATH, 'checkin.log'),
+    handlers=[fh],
     format='%(asctime)s - %(levelname)s - %(message)s',
     level=logging.INFO,
     datefmt='%Y-%m-%d %H:%M:%S')
@@ -76,9 +80,22 @@ def extract_domain(url):
 
     end = url.find("/", start + 2)
     if end == -1:
-        end = len(url) - 1
+        end = len(url)
 
     return url[start + 2:end]
+
+def is_checked(url):
+    flag = False
+    today = time.strftime("%Y-%m-%d",time.localtime(time.time()))
+    with FileReadBackwards(log_file, encoding="utf-8") as frb:
+        for line in frb:
+            if not line.startswith(today):
+                flag = False
+                break
+            elif line.find(extract_domain(url))!=-1 and line.find("INFO")!=-1:
+                flag = True
+                break
+    return flag
 
 def checkin(url, headers, form_data, retry, proxy=False):
     try:
@@ -90,9 +107,9 @@ def checkin(url, headers, form_data, retry, proxy=False):
         print(response.text)
         if response.status_code == 200:
             if response.text.find("已经签到") != -1:
-                logging.info(u"已经签到 URL: {}".format(extract_domain(url)))
+                logging.info("已经签到 URL: {}".format(extract_domain(url)))
             else:
-                logging.info(u"签到成功 URL: {}".format(extract_domain(url)))
+                logging.info("签到成功 URL: {}".format(extract_domain(url)))
 
             return 
 
@@ -104,7 +121,7 @@ def checkin(url, headers, form_data, retry, proxy=False):
             time.sleep(get_randint(30, 60 * 60))
             checkin(url, headers, retry, proxy)
 
-        logging.error(u"签到失败 URL: {}".format(extract_domain(url)))   
+        logging.error(u"签到失败 URL: {}".format(extract_domain(url)))
 
 def flow(domain, params, headers, proxy=False):
     domain = domain.strip()# remvoe space in start and tail
@@ -120,7 +137,10 @@ def flow(domain, params, headers, proxy=False):
     headers["origin"] = domain
     headers["referer"] = domain+"/plugin.php?id=dsu_paulsign:sign"
     checkin_url = headers["referer"]+"&operation=qiandao&infloat=1&inajax=1"
-    checkin(checkin_url, headers, form_data, RETRY_NUM, proxy)
+    if not is_checked(domain):
+        checkin(checkin_url, headers, form_data, RETRY_NUM, proxy)
+    else:
+        logging.info("已经签到 URL: {}".format(extract_domain(domain)))
 
 def wrapper(args):
     flow(args["domain"], args["param"], HEADER, args["proxy"])
