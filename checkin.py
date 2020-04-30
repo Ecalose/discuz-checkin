@@ -80,29 +80,6 @@ def extract_domain(url):
 
     return url[start + 2:end]
 
-# def login(url, params, cookies, headers, retry, proxy=False):
-#     try:
-#         if proxy:
-#             response = requests.post(
-#                 url, data=params, cookies = cookies, headers=headers, allow_redirects=True, proxies=PROXY, verify=False)
-#         else:
-#             response = requests.post(
-#                 url, data=params, cookies = cookies, headers=headers, allow_redirects=True)
-
-#         if response.status_code == 200:
-#             return {str(key).lower(): value for key, value in response.headers.items()}
- 
-#     except RequestException as e:
-#         logging.error(str(e))
-#         retry -= 1
-
-#         if retry > 0:
-#             time.sleep(get_randint(30 * 60, 90 * 60))
-#             login(url, params, headers, retry, proxy)
-
-#         logging.error(u"登录失败 URL: {}".format(extract_domain(url)))
-#         return None
-
 def checkin(url, headers, form_data, retry, proxy=False):
     try:
         if proxy:
@@ -127,28 +104,7 @@ def checkin(url, headers, form_data, retry, proxy=False):
             time.sleep(get_randint(30, 60 * 60))
             checkin(url, headers, retry, proxy)
 
-        logging.error(u"签到失败 URL: {}".format(extract_domain(url)))
-
-# def logout(url, headers):
-#     try:
-#         response = requests.get(url, headers=headers)
-#         if response.status_code == 200:
-#             return 0
-#         else:
-#             logging.info(u"退出失败 URL: {}".format(extract_domain(url)))
-#             return -3
-#     except RequestException:
-#         return -3
-
-# def get_cookie(headers):
-#     regex = "(__cfduid|uid|email|key|ip|expire_in)=(.+?);"
-#     if "set-cookie" not in headers:
-#         return ''
-
-#     content = re.findall(regex, headers["set-cookie"])
-#     cookie = ';'.join(['='.join(x) for x in content]).strip()
-
-#     return cookie      
+        logging.error(u"签到失败 URL: {}".format(extract_domain(url)))   
 
 def flow(domain, params, headers, proxy=False):
     domain = domain.strip()# remvoe space in start and tail
