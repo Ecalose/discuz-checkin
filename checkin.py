@@ -19,17 +19,7 @@ warnings.filterwarnings('ignore') #ignore std warning，don't mind
 HEADER = {
     "user-agent":
     "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36",
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "accept-encoding": "gzip, deflate, br",
-    "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7",
-    "cache-control": "max-age=0",
-    "content-type": "application/x-www-form-urlencoded",
     "dnt": "1",
-    "sec-fetch-dest": "iframe",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-user": "?1",
-    "upgrade-insecure-requests": "1"
 }
 
 PROXY = {
@@ -97,7 +87,12 @@ def is_checked(url):
                 break
     return flag
 
+def get_formhash():
+    # TODO, how?
+    pass
+
 def checkin(url, headers, form_data, retry, proxy=False):
+    print(headers)
     try:
         if proxy:
             response = requests.post(url, headers=headers, proxies=PROXY, verify=False)
@@ -106,10 +101,13 @@ def checkin(url, headers, form_data, retry, proxy=False):
         print("+++++++++++++++++++++++++++")
         print(response.text)
         if response.status_code == 200:
-            if response.text.find("已经签到") != -1:
+            # TODO 
+            if re.findall("已签|已经签到|签过到", response.text) != []:
                 logging.info("已经签到 URL: {}".format(extract_domain(url)))
-            else:
+            elif re.findall("签到成功", response.text) != []:
                 logging.info("签到成功 URL: {}".format(extract_domain(url)))
+            else:
+                logging.error("签到失败 URL: {}, 返回内容: {}".format(extract_domain(url), response.text))
 
             return 
 
@@ -123,7 +121,7 @@ def checkin(url, headers, form_data, retry, proxy=False):
 
         logging.error(u"签到失败 URL: {}".format(extract_domain(url)))
 
-def flow(domain, params, headers, proxy=False):
+def flow(domain, params, headers, checkin_url, proxy=False):
     domain = domain.strip()# remvoe space in start and tail
     regex = "(?i)^(https?:\\/\\/)?(www.)?([^\\/]+\\.[^.]*$)"
     flag = re.search(regex, domain)
@@ -135,15 +133,13 @@ def flow(domain, params, headers, proxy=False):
     headers["cookie"] = cookie
     form_data = params["form_data"]
     headers["origin"] = domain
-    headers["referer"] = domain+"/plugin.php?id=dsu_paulsign:sign"
-    checkin_url = headers["referer"]+"&operation=qiandao&infloat=1&inajax=1"
     if not is_checked(domain):
         checkin(checkin_url, headers, form_data, RETRY_NUM, proxy)
     else:
         logging.info("已经签到 URL: {}".format(extract_domain(domain)))
 
 def wrapper(args):
-    flow(args["domain"], args["param"], HEADER, args["proxy"])
+    flow(args["domain"], args["param"], HEADER, args["checkin_url"], args["proxy"])
 # %%
 config = config_load('./config.json')
 if config is None or "domains" not in config or len(config["domains"]) == 0:
@@ -165,4 +161,6 @@ params = config["domains"]
 for i in range(len(params)):
     wrapper(params[i])
 # %%
-# wrapper(params[1])
+# wrapper(params[3])
+
+# %%
