@@ -92,23 +92,49 @@ def get_formhash():
     pass
 
 def checkin(url, headers, form_data, retry, proxy=False):
-    print(headers)
+    def has_checked(url):
+        logging.info("已经签到 URL: {}".format(extract_domain(url)))
+        print("已签{}".format(extract_domain(url)))
+        return 
+    def success(url):
+        logging.info("签到成功 URL: {}".format(extract_domain(url)))
+        print("成功{}".format(extract_domain(url)))
+        return
+    def cookie_err(url):
+        logging.error("签到失败 URL: {}, cookies或formhash过期".format(extract_domain(url)))
+        print("非法失败{}".format(extract_domain(url)))
+        text = "{}, 签到出现非法失败, 手动更新cookies或formhash".format(extract_domain(url))
+        requests.get("https://sc.ftqq.com/xxxx.send?text={}".format(text))
+        return
+    def failed(url):
+        logging.error("签到失败 URL: {}, 未知错误".format(extract_domain(url)))
+        print("未知失败{}".format(extract_domain(url)))
+        text = "{}, 签到出现未知失败".format(extract_domain(url))
+        requests.get("https://sc.ftqq.com/xxxx.send?text={}".format(text))
+        print(text)
+        return
+    
+    checkin_dict = {
+        "已签|已经签到|签过到": has_checked,
+        "签到成功": success,
+        "未定义|非法": cookie_err,
+    }
+
     try:
         if proxy:
             response = requests.post(url, headers=headers, proxies=PROXY, verify=False)
         else:
             response = requests.post(url, headers=headers, data=form_data)
-        print("+++++++++++++++++++++++++++")
-        print(response.text)
+        # print("+++++++++++++++++++++++++++")
+        # print(response.text)
         if response.status_code == 200:
-            # TODO 
-            if re.findall("已签|已经签到|签过到", response.text) != []:
-                logging.info("已经签到 URL: {}".format(extract_domain(url)))
-            elif re.findall("签到成功", response.text) != []:
-                logging.info("签到成功 URL: {}".format(extract_domain(url)))
-            else:
-                logging.error("签到失败 URL: {}, 返回内容: {}".format(extract_domain(url), response.text))
-
+            flag = False
+            for key in checkin_dict:
+                if re.findall(key, response.text) != []:
+                    flag = True
+                    checkin_dict[key](url)
+            if flag == False:
+                failed(url)
             return 
 
     except RequestException as e:
